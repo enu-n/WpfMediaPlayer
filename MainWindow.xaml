@@ -6,7 +6,7 @@
         
         Background="Black"
         ContextMenu="{DynamicResource PlayerContextMenu}"
-        Title="NPlayer" Height="270" Width="480">
+        Title="NPlayer" Height="270" Width="480" MinHeight="270" MinWidth="480">
 
     <Window.Resources>
         <!--コンテキストメニュー-->
@@ -17,6 +17,7 @@
             <MenuItem Header="Size">
                 <MenuItem Header="50%" Click="DoSetHalfNaturalVideoHeightWidthCommand"/>
                 <MenuItem Header="100%" Click="DoSetNaturalVideoHeightWidthCommand"/>
+                <MenuItem Header="150%" Click="DoSetOneAndHerfNaturalVideoHeightWidthCommand"/>
                 <MenuItem Header="200%" Click="DoSetDoubledNaturalVideoHeightWidthCommand"/>
             </MenuItem>
             <Separator/>
@@ -104,6 +105,7 @@
         <!--MediaElement-->
         <MediaElement x:Name="MainPlayer" Stretch="Fill" 
                       MediaOpened="MainPlayer_MediaOpened" MediaEnded="MainPlayer_MediaEnded"
+                      BufferingStarted="MainPlayer_BufferingStarted" BufferingEnded="MainPlayer_BufferingEnded"
                       LoadedBehavior="Manual"  UnloadedBehavior="Manual"/>
 
         <!--InfoPanel-->
@@ -130,7 +132,7 @@
             <Grid Name="ControlBarPanel" >
                 <StackPanel Orientation="Horizontal">
                     <!--Play Button-->
-                    <Button Name="PlayButton" Background="Transparent" IsEnabled="true" Click="DoPlayCommand">
+                    <Button Name="PlayButton" Background="Transparent" IsEnabled="False" Click="DoPlayCommand">
                         <Image Name="PlayButtonImage" HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="None" Source="image/play_button.png"/>
                     </Button>
 

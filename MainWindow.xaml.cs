@@ -33,6 +33,7 @@ namespace WpfMediaPlayer
     public partial class MainWindow : Window
     {
         DispatcherTimer Timer;
+        DispatcherTimer BufferTimer;
         string _fileName = "";
 
         //フラグ
@@ -50,6 +51,8 @@ namespace WpfMediaPlayer
             //マウス操作
             //ドラッグでウィンドウ移動
             this.MouseLeftButtonDown += (sender, e) => { if (!_isDrag) { this.DragMove(); } };
+
+            //ダブルクリックで最大化
             this.MouseDoubleClick += (s, e) =>
             {
                 if (this.WindowState == WindowState.Normal)
@@ -77,12 +80,14 @@ namespace WpfMediaPlayer
             };
 
             //マウス操作
+            //マウスが画面に載ったらパネルを表示
             this.MouseEnter += (s, e) =>
             {
                 InfoTextPanel.Visibility = Visibility.Visible;
                 ControlPanel.Visibility = Visibility.Visible;
             };
 
+            //マウスが画面から離れたらパネルを非表示
             this.MouseLeave += (s, e) =>
             {
                 InfoTextPanel.Visibility = Visibility.Collapsed;
@@ -92,11 +97,10 @@ namespace WpfMediaPlayer
             //ウィンドウの終了操作
             this.Closed += (s, e) => { Stop(); };
 
+            //シークバーと再生時間を動かすDispatherTimerをセット
             Timer = new DispatcherTimer();
             Timer.Tick += TimerEvent;
             Timer.Interval = new TimeSpan(0, 0, 1);
-
-            //MainPlayer.Volume = (double)volumeSlider.Value;
 
             //コマンドライン引数を確認
             if (App.CommandLineArgs != null)
@@ -105,7 +109,6 @@ namespace WpfMediaPlayer
 
                 Play();
             }
-
         }
 
         #endregion
@@ -142,12 +145,9 @@ namespace WpfMediaPlayer
 
             //Dialogを開く
             Nullable<bool> result = openURLDlg.ShowDialog();
-            // if (result == false) { return; }
 
             //ファイル名を保存
             _fileName = openURLDlg.FileName;
-
-            MessageBox.Show(_fileName);
 
             //自動再生
             Play();
@@ -193,6 +193,14 @@ namespace WpfMediaPlayer
         }
 
         //ウィンドウサイズを調整
+        void DoSetHalfNaturalVideoHeightWidthCommand(object sender, RoutedEventArgs e)
+        {
+            if (CurrentState == PlayerState.isStopped) { return; }
+
+            this.Height = MainPlayer.NaturalVideoHeight / 2;
+            this.Width = MainPlayer.NaturalVideoWidth / 2;
+        }
+
         void DoSetNaturalVideoHeightWidthCommand(object sender, RoutedEventArgs e)
         {
             if (CurrentState == PlayerState.isStopped) { return; }
@@ -201,12 +209,12 @@ namespace WpfMediaPlayer
             this.Width = MainPlayer.NaturalVideoWidth;
         }
 
-        void DoSetHalfNaturalVideoHeightWidthCommand(object sender, RoutedEventArgs e)
+        void DoSetOneAndHerfNaturalVideoHeightWidthCommand(object sender, RoutedEventArgs e)
         {
             if (CurrentState == PlayerState.isStopped) { return; }
 
-            this.Height = MainPlayer.NaturalVideoHeight / 2;
-            this.Width = MainPlayer.NaturalVideoWidth / 2;
+            this.Height = MainPlayer.NaturalVideoHeight * 1.5;
+            this.Width = MainPlayer.NaturalVideoWidth * 1.5;
         }
 
         void DoSetDoubledNaturalVideoHeightWidthCommand(object sender, RoutedEventArgs e)
@@ -224,18 +232,24 @@ namespace WpfMediaPlayer
         //動画読み込み時の処理
         private void MainPlayer_MediaOpened(object sender, RoutedEventArgs e)
         {
+            if (MainPlayer.NaturalDuration != Duration.Automatic)
+            {
+                //コントロールの有効化
+                PlayButton.IsEnabled = true;
+                RepeatButton.IsEnabled = true;
+                SeekBarControl.IsEnabled = true;
 
-            //コントロールの有効化
-            PlayButton.IsEnabled = true;
-            //StopButton.IsEnabled = true;
-            RepeatButton.IsEnabled = true;
-            SeekBarControl.IsEnabled = true;
+                //再生時間を書き込む
+                NaturalDurationText.Text = String.Format("{0:00}:{1:00}:{2:00}", MainPlayer.NaturalDuration.TimeSpan.Hours,
+                                                                                 MainPlayer.NaturalDuration.TimeSpan.Minutes,
+                                                                                 MainPlayer.NaturalDuration.TimeSpan.Seconds);
 
-            //ファイルの再生時間をスライダーにセット
-            //timelineSlider.Maximum = MainPlayer.NaturalDuration.TimeSpan.TotalSeconds;
-            NaturalDurationText.Text = String.Format("{0:00}:{1:00}:{2:00}", MainPlayer.NaturalDuration.TimeSpan.Hours,
-                                                                             MainPlayer.NaturalDuration.TimeSpan.Minutes,
-                                                                             MainPlayer.NaturalDuration.TimeSpan.Seconds);
+                Timer.Start();
+            }
+            else
+            { 
+            
+            }
         }
 
         //動画終了時の処理
@@ -243,6 +257,25 @@ namespace WpfMediaPlayer
         {
             Timer.Stop();
             Stop();
+
+            if (_isRepeat) { Play(); }
+        }
+
+        private void MainPlayer_BufferingStarted(object sender, RoutedEventArgs e)
+        {
+            InfoText.Text = "Buffring...";
+
+            BufferTimer = new DispatcherTimer();
+            BufferTimer.Tick += (s, ev) => { InfoText.Text = String.Format("{0}%", MainPlayer.BufferingProgress * 100).ToString(); };
+            BufferTimer.Interval = new TimeSpan(0, 0, 1);
+
+            BufferTimer.Start();
+        }
+
+        private void MainPlayer_BufferingEnded(object sender, RoutedEventArgs e)
+        {
+            BufferTimer.Stop();
+            InfoText.Text = "Conmplete Conectiong!";
         }
 
         #endregion
@@ -260,8 +293,7 @@ namespace WpfMediaPlayer
             MainPlayer.Play();
 
             PlayButtonImage.Source = new BitmapImage(new Uri("image/pause_button.png", UriKind.Relative));
-            CurrentState = PlayerState.isPlaying;
-            Timer.Start();
+            CurrentState = PlayerState.isPlaying;           
         }
 
         //停止
@@ -269,14 +301,12 @@ namespace WpfMediaPlayer
         {
             if (CurrentState == PlayerState.isStopped) { return; }
 
-            //StopButton.IsEnabled = false;
             SeekBarControl.IsEnabled = false;
 
             Timer.Stop();
             MainPlayer.Stop();
             MainPlayer.Close();
 
-            //timelineSlider.Value = timelineSlider.Minimum;
             PlayButtonImage.Source = new BitmapImage(new Uri("image/play_button.png", UriKind.Relative));
 
             CurrentState = PlayerState.isStopped;
@@ -312,32 +342,22 @@ namespace WpfMediaPlayer
             if (_isRepeat)
             {
                 //リピートオフ
-                MainPlayer.MediaEnded -= SetRepeatEventHandler;
-                MainPlayer.MediaEnded += MainPlayer_MediaEnded;
                 _isRepeat = false;
                 RepeatButton.Content = "OFF";
             }
             else
             {
                 //リピートオン
-                MainPlayer.MediaEnded -= MainPlayer_MediaEnded;
-                MainPlayer.MediaEnded += SetRepeatEventHandler;
                 _isRepeat = true;
                 RepeatButton.Content = "ON";
             }
-        }
-
-        //リピートイベント
-        private void SetRepeatEventHandler(object sender, RoutedEventArgs e)
-        {
-            Stop();
-            Play();
         }
 
         #endregion
 
         #region SeekBar Methods
 
+        //1秒毎にシークバーと再生時間を更新
         public void TimerEvent(object sender, EventArgs e)
         {
             SeekBar.Width = SeekBarControl.ActualWidth * (MainPlayer.Position.TotalSeconds / MainPlayer.NaturalDuration.TimeSpan.TotalSeconds);
@@ -345,10 +365,9 @@ namespace WpfMediaPlayer
             PotisionText.Text = String.Format("{0:00}:{1:00}:{2:00}", MainPlayer.Position.Hours,
                                                                       MainPlayer.Position.Minutes,
                                                                       MainPlayer.Position.Seconds);
-
-            //if (Position > Duration) { timer.Stop(); }
         }
 
+        //シークバーのマウス操作
         private void SeekBarControl_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             Timer.Stop();
@@ -394,6 +413,7 @@ namespace WpfMediaPlayer
 
         #region VolumeBar Methods
 
+        //ボリュームボタンとバーのマウス操作
         private void VolumeButton_Click(object sender, RoutedEventArgs e)
         {
             MainPlayer.Volume = 0;
@@ -405,6 +425,7 @@ namespace WpfMediaPlayer
             VolumeBarPanel.Visibility = Visibility.Visible;
         }
 
+        //バーを閉じる時のアニメーション
         public void VolumeBarPanelAnimation()
         {
             DoubleAnimation BarAnimation = new DoubleAnimation();
@@ -440,7 +461,6 @@ namespace WpfMediaPlayer
         private void VolumeBarControl_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
             Point ClickPoint = e.GetPosition(this.VolumeBarPanel);
-            if (ClickPoint.X < 0) { return; }
 
             MainPlayer.Volume = 1 * (ClickPoint.X / VolumeBarControl.Width);
             VolumeBar.Width = ClickPoint.X;
@@ -454,7 +474,6 @@ namespace WpfMediaPlayer
             {
                 Point ClickPoint = e.GetPosition(this.VolumeBarPanel);
                 MainPlayer.Volume = 1 * (ClickPoint.X / VolumeBarControl.Width);
-                if (ClickPoint.X < 0) { return; }
 
                 VolumeBar.Width = ClickPoint.X;
             }
@@ -465,18 +484,25 @@ namespace WpfMediaPlayer
             if (_isDrag)
             {
                 Point ClickPoint = e.GetPosition(this.VolumeBarPanel);
-                if (ClickPoint.X < 0) { return; }
-
-                MainPlayer.Volume = 1 * (ClickPoint.X / VolumeBarControl.Width);
-                VolumeBar.Width = ClickPoint.X;
+                if (ClickPoint.X < 0)
+                {
+                    MainPlayer.Volume = 0;
+                    VolumeBar.Width = 0;
+                }
+                else
+                {
+                    MainPlayer.Volume = 1 * (ClickPoint.X / VolumeBarControl.Width);
+                    VolumeBar.Width = ClickPoint.X;
+                }
 
                 _isDrag = false;
             }
-
-
         }
 
         #endregion
+
+
+
 
     }
 }
