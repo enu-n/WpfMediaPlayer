@@ -27,7 +27,7 @@ namespace WpfMediaPlayer
 
     public enum PlayerState
     {
-        isPlaying, isPaused, isStopped
+        isPlaying, isPaused, isStopped, isStream
     }
 
     public partial class MainWindow : Window
@@ -36,10 +36,35 @@ namespace WpfMediaPlayer
         DispatcherTimer BufferTimer;
         string _fileName = "";
 
+        double Volume
+        {
+            get
+            {
+                return MainPlayer.Volume;
+            }
+            set
+            {
+                if (value >= 1)
+                {
+                    MainPlayer.Volume = 1;
+                }
+                else if (value <= 0)
+                {
+                    MainPlayer.Volume = 0;
+                }
+                else
+                {
+                    MainPlayer.Volume = value;
+                }
+            }
+        }
+
+
         //フラグ
         bool _isRepeat = false;
         bool _isDrag = false;
         PlayerState CurrentState = PlayerState.isStopped;
+
 
         #region Constructor
 
@@ -63,6 +88,21 @@ namespace WpfMediaPlayer
                 {
                     this.WindowState = WindowState.Normal;
                 }
+            };
+
+            //マウスホイールでボリュームを変化させる
+            this.MouseWheel += (s, e) =>
+            {
+                if (e.Delta > 0)
+                {
+                    Volume += 0.01;
+                }
+                else
+                {
+                    Volume -= 0.01;
+                }
+
+                VolumeBar.Width = VolumeBarControl.Width * MainPlayer.Volume;
             };
 
             //キー操作
@@ -101,6 +141,9 @@ namespace WpfMediaPlayer
             Timer = new DispatcherTimer();
             Timer.Tick += TimerEvent;
             Timer.Interval = new TimeSpan(0, 0, 1);
+
+            //ボリュームをバーにセット
+            VolumeBar.Width = VolumeBarControl.Width * MainPlayer.Volume;
 
             //コマンドライン引数を確認
             if (App.CommandLineArgs != null)
@@ -258,9 +301,13 @@ namespace WpfMediaPlayer
             Timer.Stop();
             Stop();
 
-            if (_isRepeat) { Play(); }
+            if (_isRepeat)
+            { 
+                Play(); 
+            }
         }
 
+        //バッファ開始時の処理
         private void MainPlayer_BufferingStarted(object sender, RoutedEventArgs e)
         {
             InfoText.Text = "Buffring...";
@@ -270,12 +317,14 @@ namespace WpfMediaPlayer
             BufferTimer.Interval = new TimeSpan(0, 0, 1);
 
             BufferTimer.Start();
+            CurrentState = PlayerState.isStream;
         }
 
+        //バッファ終了時の処理
         private void MainPlayer_BufferingEnded(object sender, RoutedEventArgs e)
         {
             BufferTimer.Stop();
-            InfoText.Text = "Conmplete Conectiong!";
+            InfoText.Text = "Conectiong...";
         }
 
         #endregion
@@ -308,6 +357,8 @@ namespace WpfMediaPlayer
             MainPlayer.Close();
 
             PlayButtonImage.Source = new BitmapImage(new Uri("image/play_button.png", UriKind.Relative));
+
+            if (CurrentState == PlayerState.isStream) { InfoText.Text = "Disconnected..."; }
 
             CurrentState = PlayerState.isStopped;
         }

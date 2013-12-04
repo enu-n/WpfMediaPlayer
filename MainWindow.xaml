@@ -6,7 +6,7 @@
         
         Background="Black"
         ContextMenu="{DynamicResource PlayerContextMenu}"
-        Title="NPlayer" Height="270" Width="480" MinHeight="270" MinWidth="480">
+        Title="NPlayer" Height="310" Width="390" MinHeight="310" MinWidth="390">
 
     <Window.Resources>
         <!--コンテキストメニュー-->
