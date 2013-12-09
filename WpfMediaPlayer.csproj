@@ -53,6 +53,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="Settings.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -100,12 +101,18 @@
   <ItemGroup>
     <None Include="App.config" />
   </ItemGroup>
-  <ItemGroup />
   <ItemGroup>
     <Resource Include="image\pause_button.png" />
     <Resource Include="image\play_button.png" />
     <Resource Include="image\stop_button.png" />
-    <Resource Include="image\volume_Bar.png" />
+    <Resource Include="image\volume_button.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="image\mute.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="image\repeat_button_off.png" />
+    <Resource Include="image\repeat_button_on.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

@@ -35,6 +35,8 @@ namespace WpfMediaPlayer
         DispatcherTimer Timer;
         DispatcherTimer BufferTimer;
         string _fileName = "";
+        double volume;
+        Properties.Settings Settings = Properties.Settings.Default;
 
         double Volume
         {
@@ -51,20 +53,21 @@ namespace WpfMediaPlayer
                 else if (value <= 0)
                 {
                     MainPlayer.Volume = 0;
+                    VolumeButtonImage.Source = new BitmapImage(new Uri("image/mute.png", UriKind.Relative));
                 }
                 else
                 {
                     MainPlayer.Volume = value;
+                    VolumeButtonImage.Source = new BitmapImage(new Uri("image/volume_button.png", UriKind.Relative));
                 }
             }
         }
 
-
         //フラグ
         bool _isRepeat = false;
         bool _isDrag = false;
-        PlayerState CurrentState = PlayerState.isStopped;
-
+        bool _autoResize = true;
+        PlayerState CurrentState = PlayerState.isStopped;   
 
         #region Constructor
 
@@ -95,14 +98,28 @@ namespace WpfMediaPlayer
             {
                 if (e.Delta > 0)
                 {
-                    Volume += 0.01;
+                    Volume += 0.02;
                 }
                 else
                 {
-                    Volume -= 0.01;
+                    Volume -= 0.02;
                 }
 
-                VolumeBar.Width = VolumeBarControl.Width * MainPlayer.Volume;
+                SetVolumeBar(); ;
+            };
+
+            //マウスが画面に載ったらパネルを表示
+            this.MouseEnter += (s, e) =>
+            {
+                InfoTextPanel.Visibility = Visibility.Visible;
+                ControlPanel.Visibility = Visibility.Visible;
+            };
+
+            //マウスが画面から離れたらパネルを非表示
+            this.MouseLeave += (s, e) =>
+            {
+                InfoTextPanel.Visibility = Visibility.Collapsed;
+                ControlPanel.Visibility = Visibility.Collapsed;
             };
 
             //キー操作
@@ -119,31 +136,18 @@ namespace WpfMediaPlayer
                 }
             };
 
-            //マウス操作
-            //マウスが画面に載ったらパネルを表示
-            this.MouseEnter += (s, e) =>
-            {
-                InfoTextPanel.Visibility = Visibility.Visible;
-                ControlPanel.Visibility = Visibility.Visible;
-            };
-
-            //マウスが画面から離れたらパネルを非表示
-            this.MouseLeave += (s, e) =>
-            {
-                InfoTextPanel.Visibility = Visibility.Collapsed;
-                ControlPanel.Visibility = Visibility.Collapsed;
-            };
-
-            //ウィンドウの終了操作
-            this.Closed += (s, e) => { Stop(); };
-
             //シークバーと再生時間を動かすDispatherTimerをセット
             Timer = new DispatcherTimer();
             Timer.Tick += TimerEvent;
             Timer.Interval = new TimeSpan(0, 0, 1);
 
-            //ボリュームをバーにセット
-            VolumeBar.Width = VolumeBarControl.Width * MainPlayer.Volume;
+            //ボリュームをセット
+            Volume = Properties.Settings.Default.Volume;
+            SetVolumeBar();
+
+            //autoresizeの設定
+            _autoResize = Properties.Settings.Default.AutoResize;
+            MenuItemAutoResize.IsChecked = _autoResize;
 
             //コマンドライン引数を確認
             if (App.CommandLineArgs != null)
@@ -156,16 +160,29 @@ namespace WpfMediaPlayer
 
         #endregion
 
+        #region Events
+
+        private void Window_Closed(object sender, EventArgs e)
+        {
+            Stop();
+
+            Properties.Settings.Default.AutoResize = _autoResize;
+            Properties.Settings.Default.Volume = Volume;
+
+            Properties.Settings.Default.Save();
+        }
+
+        #endregion
+
         #region Commands
 
         //ファイルを開く
         void DoOpenCommand(object sender, RoutedEventArgs e)
         {
-
             //OpenFileDialogの設定
             var openDlg = new OpenFileDialog();
-            openDlg.DefaultExt = "mp4; wmv; avi";
-            openDlg.Filter = "Movie File (*.mp4; *.wmv; *.avi;)|*.mp4; *.wmv; *.avi| all file (*.*)|*.*";
+            openDlg.DefaultExt = "mp4; flv; wmv; avi";
+            openDlg.Filter = "Movie File (*.mp4; *.flv; *.wmv; *.avi;)|*.mp4; *.flv; *.wmv; *.avi| all file (*.*)|*.*";
 
             //Dialogを開く
             Nullable<bool> result = openDlg.ShowDialog();
@@ -223,6 +240,12 @@ namespace WpfMediaPlayer
             }
         }
 
+        //一時停止
+        void DoPauseCommand(object sender, RoutedEventArgs e)
+        {
+            Pause();
+        }
+
         //ストップコマンド
         void DoStopCommand(object sender, RoutedEventArgs e)
         {
@@ -238,34 +261,39 @@ namespace WpfMediaPlayer
         //ウィンドウサイズを調整
         void DoSetHalfNaturalVideoHeightWidthCommand(object sender, RoutedEventArgs e)
         {
-            if (CurrentState == PlayerState.isStopped) { return; }
-
-            this.Height = MainPlayer.NaturalVideoHeight / 2;
-            this.Width = MainPlayer.NaturalVideoWidth / 2;
+            Resize(0.5);
         }
 
         void DoSetNaturalVideoHeightWidthCommand(object sender, RoutedEventArgs e)
         {
-            if (CurrentState == PlayerState.isStopped) { return; }
-
-            this.Height = MainPlayer.NaturalVideoHeight;
-            this.Width = MainPlayer.NaturalVideoWidth;
+            Resize();
         }
 
         void DoSetOneAndHerfNaturalVideoHeightWidthCommand(object sender, RoutedEventArgs e)
         {
-            if (CurrentState == PlayerState.isStopped) { return; }
-
-            this.Height = MainPlayer.NaturalVideoHeight * 1.5;
-            this.Width = MainPlayer.NaturalVideoWidth * 1.5;
+            Resize(1.5);
         }
 
         void DoSetDoubledNaturalVideoHeightWidthCommand(object sender, RoutedEventArgs e)
         {
-            if (CurrentState == PlayerState.isStopped) { return; }
+            Resize(2);
+        }
 
-            this.Height = MainPlayer.NaturalVideoHeight * 2;
-            this.Width = MainPlayer.NaturalVideoWidth * 2;
+        //メディアを開いたら自動的にウィンドウサイズを更新
+        void DoAutoResizeCommand(object sender, RoutedEventArgs e)
+        {
+            MenuItem item = (MenuItem)sender;
+
+            if (_autoResize)
+            {
+                _autoResize = false;
+                item.IsChecked = false;
+            }
+            else
+            {
+                _autoResize = true;
+                item.IsChecked = true;
+            }
         }
 
         #endregion
@@ -282,16 +310,14 @@ namespace WpfMediaPlayer
                 RepeatButton.IsEnabled = true;
                 SeekBarControl.IsEnabled = true;
 
+                if (_autoResize) { Resize(); }
+
                 //再生時間を書き込む
                 NaturalDurationText.Text = String.Format("{0:00}:{1:00}:{2:00}", MainPlayer.NaturalDuration.TimeSpan.Hours,
                                                                                  MainPlayer.NaturalDuration.TimeSpan.Minutes,
                                                                                  MainPlayer.NaturalDuration.TimeSpan.Seconds);
 
                 Timer.Start();
-            }
-            else
-            { 
-            
             }
         }
 
@@ -301,10 +327,7 @@ namespace WpfMediaPlayer
             Timer.Stop();
             Stop();
 
-            if (_isRepeat)
-            { 
-                Play(); 
-            }
+            if (_isRepeat) { Play(); }
         }
 
         //バッファ開始時の処理
@@ -394,19 +417,27 @@ namespace WpfMediaPlayer
             {
                 //リピートオフ
                 _isRepeat = false;
-                RepeatButton.Content = "OFF";
+                RepeatButtonImage.Source = new BitmapImage(new Uri("image/repeat_button_off.png", UriKind.Relative));
             }
             else
             {
                 //リピートオン
-                _isRepeat = true;
-                RepeatButton.Content = "ON";
+                _isRepeat = true;             
+                RepeatButtonImage.Source = new BitmapImage(new Uri("image/repeat_button_on.png", UriKind.Relative));
             }
+        }
+
+        public void Resize(double rate = 1)
+        {
+            if (CurrentState == PlayerState.isStopped) { return; }
+
+            this.Height = MainPlayer.NaturalVideoHeight * rate;
+            this.Width = MainPlayer.NaturalVideoWidth * rate;
         }
 
         #endregion
 
-        #region SeekBar Methods
+        #region SeekBar Methods and Events
 
         //1秒毎にシークバーと再生時間を更新
         public void TimerEvent(object sender, EventArgs e)
@@ -427,11 +458,14 @@ namespace WpfMediaPlayer
 
         private void SeekBarControl_MouseMove(object sender, MouseEventArgs e)
         {
+            Point ClickPoint = e.GetPosition(this.SeekBarControl);
+
             if (_isDrag)
-            {
-                Point ClickPoint = e.GetPosition(this.SeekBarControl);
+            {             
                 SeekBar.Width = ClickPoint.X;
             }
+
+            SeekTimeTip(ClickPoint.X);
         }
 
         private void SeekBarControl_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -446,6 +480,12 @@ namespace WpfMediaPlayer
 
         }
 
+        private void SeekBarControl_MouseEnter(object sender, MouseEventArgs e)
+        {
+            Point ClickPoint = e.GetPosition(this.SeekBarControl);
+            SeekTimeTip(ClickPoint.X);
+        }
+
         private void SeekBarControl_MouseLeave(object sender, MouseEventArgs e)
         {
             if (_isDrag)
@@ -458,16 +498,54 @@ namespace WpfMediaPlayer
                 _isDrag = false;
                 Timer.Start();
             }
+
+            SeekTimePanel.Visibility = Visibility.Collapsed;
+        }
+
+        //シークバー上の時間を表示
+        private void SeekTimeTip(double MousePositionX)
+        {
+            int PositionToSec = (int)(MainPlayer.NaturalDuration.TimeSpan.TotalSeconds * (MousePositionX / SeekBarControl.ActualWidth));
+            int hours = PositionToSec / 3600;
+            int miniutes = (PositionToSec - hours * 3600) / 60;
+            int seconds = (PositionToSec - hours * 3600) % 60;
+
+            SeekTimePanel.Visibility = Visibility.Visible;
+
+            if (MousePositionX <= SeekTimePanel.ActualWidth / 2)
+            {
+                SeekTimePanel.Margin = new Thickness(0, 0, 0, ControlPanel.ActualHeight);
+            }
+            else if (MousePositionX >= SeekBarControl.ActualWidth - SeekTimePanel.ActualWidth / 2)
+            {
+                SeekTimePanel.Margin = new Thickness(SeekBarControl.ActualWidth - SeekTimePanel.ActualWidth, 0, 0, ControlPanel.ActualHeight);
+            }
+            else
+            {
+                SeekTimePanel.Margin = new Thickness(MousePositionX - SeekTimePanel.ActualWidth / 2, 0, 0, ControlPanel.ActualHeight);
+            }
+
+            SeekTimeText.Text = String.Format("{0:00}:{1:00}:{2:00}", hours, miniutes, seconds);
         }
 
         #endregion
 
-        #region VolumeBar Methods
+        #region VolumeBar Methods and Events
 
         //ボリュームボタンとバーのマウス操作
         private void VolumeButton_Click(object sender, RoutedEventArgs e)
         {
-            MainPlayer.Volume = 0;
+            if (Volume == 0)
+            {
+                Volume = volume;
+            }
+            else
+            {
+                volume = Volume;
+                Volume = 0;
+            }
+            
+            SetVolumeBar();
         }
 
         private void VolumeButton_MouseEnter(object sender, MouseEventArgs e)
@@ -513,8 +591,8 @@ namespace WpfMediaPlayer
         {
             Point ClickPoint = e.GetPosition(this.VolumeBarPanel);
 
-            MainPlayer.Volume = 1 * (ClickPoint.X / VolumeBarControl.Width);
-            VolumeBar.Width = ClickPoint.X;
+            Volume = 1 * (ClickPoint.X / VolumeBarControl.Width);
+            SetVolumeBar();
 
             _isDrag = false;
         }
@@ -524,9 +602,9 @@ namespace WpfMediaPlayer
             if (_isDrag)
             {
                 Point ClickPoint = e.GetPosition(this.VolumeBarPanel);
-                MainPlayer.Volume = 1 * (ClickPoint.X / VolumeBarControl.Width);
 
-                VolumeBar.Width = ClickPoint.X;
+                Volume = 1 * (ClickPoint.X / VolumeBarControl.Width);
+                SetVolumeBar();
             }
         }
 
@@ -535,25 +613,21 @@ namespace WpfMediaPlayer
             if (_isDrag)
             {
                 Point ClickPoint = e.GetPosition(this.VolumeBarPanel);
-                if (ClickPoint.X < 0)
-                {
-                    MainPlayer.Volume = 0;
-                    VolumeBar.Width = 0;
-                }
-                else
-                {
-                    MainPlayer.Volume = 1 * (ClickPoint.X / VolumeBarControl.Width);
-                    VolumeBar.Width = ClickPoint.X;
-                }
+
+                Volume = 1 * (ClickPoint.X / VolumeBarControl.Width);
+                SetVolumeBar();
 
                 _isDrag = false;
             }
         }
 
+        private void SetVolumeBar()
+        {
+            VolumeBar.Width = VolumeBarControl.Width * Volume;
+            InfoTextRight.Text = String.Format("Volume:{0:00}", Volume * 100);
+        }
+
         #endregion
-
-
-
 
     }
 }

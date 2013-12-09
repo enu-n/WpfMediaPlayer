@@ -5,24 +5,11 @@
         WindowStyle="None"
         
         Background="Black"
-        ContextMenu="{DynamicResource PlayerContextMenu}"
-        Title="NPlayer" Height="310" Width="390" MinHeight="310" MinWidth="390">
+        Title="WpfMediaPlayer" Height="310" Width="390" MinHeight="310" MinWidth="390"
+        Closed="Window_Closed">
 
     <Window.Resources>
         <!--コンテキストメニュー-->
-        <ContextMenu x:Key="PlayerContextMenu" x:Shared="true">
-            <MenuItem Header="Open…" Click="DoOpenCommand"/>
-            <MenuItem Header="Open(URL)…" Click="DoOpenURLCommand"/>
-            <Separator/>
-            <MenuItem Header="Size">
-                <MenuItem Header="50%" Click="DoSetHalfNaturalVideoHeightWidthCommand"/>
-                <MenuItem Header="100%" Click="DoSetNaturalVideoHeightWidthCommand"/>
-                <MenuItem Header="150%" Click="DoSetOneAndHerfNaturalVideoHeightWidthCommand"/>
-                <MenuItem Header="200%" Click="DoSetDoubledNaturalVideoHeightWidthCommand"/>
-            </MenuItem>
-            <Separator/>
-            <MenuItem Header="Close" Click="DoCloseCommand"/>
-        </ContextMenu>
 
         <!--ボタンのコントロールテンプレートとスタイル-->
         <ControlTemplate x:Key="GlassButton" TargetType="{x:Type Button}">
@@ -101,6 +88,36 @@
 
     </Window.Resources>
 
+    <Window.ContextMenu>
+        <!--コンテキストメニュー-->
+        <ContextMenu>
+            <MenuItem Header="Opne...">
+                <MenuItem Name="MenuItemOpne" Header="Open…" Click="DoOpenCommand"/>
+                <MenuItem Name="MenuItemOpneURL" Header="Open(URL)…" Click="DoOpenURLCommand"/>
+            </MenuItem>
+            
+            <Separator/>
+            
+            <MenuItem Name="MenuItemPlay" Header="Play" Click="DoPlayCommand"/>
+            <MenuItem Name="MenuItemPause" Header="Pause" Click="DoPauseCommand"/>
+            <MenuItem Name="MenuItemStop" Header="Stop" Click="DoStopCommand"/>
+            
+            <Separator/>
+            
+            <MenuItem Header="Size">
+                <MenuItem Header="50%" Click="DoSetHalfNaturalVideoHeightWidthCommand"/>
+                <MenuItem Header="100%" Click="DoSetNaturalVideoHeightWidthCommand"/>
+                <MenuItem Header="150%" Click="DoSetOneAndHerfNaturalVideoHeightWidthCommand"/>
+                <MenuItem Header="200%" Click="DoSetDoubledNaturalVideoHeightWidthCommand"/>
+                <MenuItem Name="MenuItemAutoResize" Header="AutoResize" Click="DoAutoResizeCommand"/>
+            </MenuItem>
+            
+            <Separator/>
+            
+            <MenuItem Header="Close" Click="DoCloseCommand"/>
+        </ContextMenu>
+    </Window.ContextMenu>
+
     <Grid Name="MainPanel">
         <!--MediaElement-->
         <MediaElement x:Name="MainPlayer" Stretch="Fill" 
@@ -113,65 +130,81 @@
             <StackPanel HorizontalAlignment="Left" VerticalAlignment="Top">
                 <TextBlock Name="InfoText" Margin="5" Foreground="White" FontSize="12" Opacity="2"/>
             </StackPanel>
+
+            <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center">
+                <TextBlock Name="InfoTextRight" Margin="5" Foreground="White" FontSize="12" Opacity="2"/>
+            </StackPanel>
+        </Grid>
+
+        <Grid Name="SeekTimePanel" HorizontalAlignment="Left" VerticalAlignment="Bottom" Width="60" Visibility="Collapsed">
+            <Polygon Points="0,0 60,0 60,20 36,20 30,25 24,20 0,20"
+    		         Fill="Black" Stroke="White" StrokeThickness="1" Opacity="0.5"/>
+
+            <TextBlock Name="SeekTimeText" HorizontalAlignment="Center"  Margin="0, 3, 0, 0" Foreground="White" FontSize="10"/>
         </Grid>
 
         <!--ControlPanel-->
-        <StackPanel Name="ControlPanel" VerticalAlignment="Bottom" Background="Black" Opacity="0.7" Visibility="Collapsed" Orientation="Vertical">
+        <Grid Name="ControlPanel" VerticalAlignment="Bottom" Visibility="Collapsed">
+            
+            <StackPanel VerticalAlignment="Bottom" Background="Black" Opacity="0.7" Orientation="Vertical">
+                <!--SeekBar-->
+                <Grid Name="SeekBarPanel" Grid.Row="0">
+                    <Rectangle Name="SeekBarBase" VerticalAlignment="Top" Fill="DarkGray" Style="{StaticResource SeekBarStyle}"/>
+                    <Rectangle Name="SeekBar" HorizontalAlignment="Left" VerticalAlignment="Top" Fill="Red" Style="{StaticResource SeekBarStyle}"/>
+                    <Rectangle Name="SeekBarControl" VerticalAlignment="Top" Fill="Transparent" Style="{StaticResource SeekBarStyle}"
+                               MouseLeftButtonDown="SeekBarControl_MouseLeftButtonDown" MouseLeftButtonUp="SeekBarControl_MouseLeftButtonUp"
+                               MouseMove="SeekBarControl_MouseMove" MouseLeave="SeekBarControl_MouseLeave" MouseEnter="SeekBarControl_MouseEnter"
+                               IsEnabled="False"/>
+                </Grid>
 
-            <!--SeekBar-->
-            <Grid Name="SeekBarPanel" Grid.Row="0">
-                <Rectangle Name="SeekBarBase" VerticalAlignment="Top" Fill="DarkGray" Style="{StaticResource SeekBarStyle}"/>
-                <Rectangle Name="SeekBar" HorizontalAlignment="Left" VerticalAlignment="Top" Fill="Red" Style="{StaticResource SeekBarStyle}"/>
-                <Rectangle Name="SeekBarControl" VerticalAlignment="Top" Fill="Transparent" Style="{StaticResource SeekBarStyle}"
-                           MouseLeftButtonDown="SeekBarControl_MouseLeftButtonDown" MouseLeftButtonUp="SeekBarControl_MouseLeftButtonUp"
-                           MouseMove="SeekBarControl_MouseMove" MouseLeave="SeekBarControl_MouseLeave"
-                           IsEnabled="False"/>
-            </Grid>
-
-            <!--ControlBar-->
-            <Grid Name="ControlBarPanel" >
-                <StackPanel Orientation="Horizontal">
-                    <!--Play Button-->
-                    <Button Name="PlayButton" Background="Transparent" IsEnabled="False" Click="DoPlayCommand">
-                        <Image Name="PlayButtonImage" HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="None" Source="image/play_button.png"/>
-                    </Button>
-
-                    <!--Volume Button-->
-                    <Grid Name="VolumeControlPanel"  Background="Transparent" MouseLeave="VolumeControlPanel_MouseLeave">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="auto"/>
-                            <ColumnDefinition Width="auto"/>
-                        </Grid.ColumnDefinitions>
-
-                        <Button Name="VolumeButton" Grid.Column="0" Width="30" Background="Transparent" 
-                            Click="VolumeButton_Click" MouseEnter="VolumeButton_MouseEnter">
-                            <Image Name="VolumeBarImage"  HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="None" Source="image/volume_Bar.png" />
+                <!--ControlBar-->
+                <Grid Name="ControlBarPanel" >
+                    <StackPanel Orientation="Horizontal">
+                        <!--Play Button-->
+                        <Button Name="PlayButton" Background="Transparent" IsEnabled="False" Click="DoPlayCommand">
+                            <Image Name="PlayButtonImage" HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="None" Source="image/play_button.png"/>
                         </Button>
 
-                        <!--Volume Bar-->
-                        <Grid Name="VolumeBarPanel" Grid.Column="1" Margin="5" Width="0" Background="Transparent" Visibility="Collapsed">
-                            <Rectangle Name="VolumeBarBase" HorizontalAlignment="Left" Fill="DarkGray" Style="{StaticResource VolumeBarStyle}"/>
-                            <Rectangle Name="VolumeBar" HorizontalAlignment="Left"  Fill="red" Style="{StaticResource VolumeBarStyle}"/>
-                            <Rectangle Name="VolumeBarControl" HorizontalAlignment="Left" Height="30" Fill="Transparent" Style="{StaticResource VolumeBarStyle}" 
-                                   MouseLeftButtonDown="VolumeBarControl_MouseLeftButtonDown" MouseLeftButtonUp="VolumeBarControl_MouseLeftButtonUp"
-                                   MouseMove="VolumeBarControl_MouseMove" MouseLeave="VolumeBarControl_MouseLeave"/>
+                        <!--Volume Button-->
+                        <Grid Name="VolumeControlPanel"  Background="Transparent" MouseLeave="VolumeControlPanel_MouseLeave">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="auto"/>
+                                <ColumnDefinition Width="auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!--Volume Button-->
+                            <Button Name="VolumeButton" Grid.Column="0" Width="30" Background="Transparent" 
+                                    Click="VolumeButton_Click" MouseEnter="VolumeButton_MouseEnter">
+                                <Image Name="VolumeButtonImage"  HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="None" Source="image/volume_button.png" />
+                            </Button>
+
+                            <!--Volume Bar-->
+                            <Grid Name="VolumeBarPanel" Grid.Column="1" Margin="5" Width="0" Background="Transparent" Visibility="Collapsed">
+                                <Rectangle Name="VolumeBarBase" HorizontalAlignment="Left" Fill="DarkGray" Style="{StaticResource VolumeBarStyle}"/>
+                                <Rectangle Name="VolumeBar" HorizontalAlignment="Left"  Fill="red" Style="{StaticResource VolumeBarStyle}"/>
+                                <Rectangle Name="VolumeBarControl" HorizontalAlignment="Left" Height="20" Fill="Transparent" Style="{StaticResource VolumeBarStyle}" 
+                                           MouseLeftButtonDown="VolumeBarControl_MouseLeftButtonDown" MouseLeftButtonUp="VolumeBarControl_MouseLeftButtonUp"
+                                           MouseMove="VolumeBarControl_MouseMove" MouseLeave="VolumeBarControl_MouseLeave"/>
+                            </Grid>
                         </Grid>
-                    </Grid>
 
-                    <!--Position/Duration-->
-                    <StackPanel Name="Position_DurationPanel" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="5" Orientation="Horizontal" >
-                        <TextBlock Name="PotisionText" Margin="5, 0, 0, 0" Foreground="White" FontSize="10" Text="00:00:00"/>
-                        <TextBlock Name="SeparateText" Margin="2, 0, 2, 0" Foreground="White" FontSize="10" Text="/"/>
-                        <TextBlock Name="NaturalDurationText" Margin="0, 0, 0, 0" Foreground="White" FontSize="10" Text="00:00:00"/>
+                        <!--Position/Duration-->
+                        <StackPanel Name="Position_DurationPanel" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="5" Orientation="Horizontal" >
+                            <TextBlock Name="PotisionText" Margin="5, 0, 0, 0" Foreground="White" FontSize="10" Text="00:00:00"/>
+                            <TextBlock Name="SeparateText" Margin="2, 0, 2, 0" Foreground="White" FontSize="10" Text="/"/>
+                            <TextBlock Name="NaturalDurationText" Margin="0, 0, 0, 0" Foreground="White" FontSize="10" Text="00:00:00"/>
+                        </StackPanel>
                     </StackPanel>
-                </StackPanel>
 
-                <!--Repeat Button-->
-                <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Name="RepeatButton" HorizontalAlignment="Right"  Width="30" IsEnabled="False" Content="OFF" Click="DoRepeatCommand"/>
-                </StackPanel>
-            </Grid>
-        </StackPanel>
+                    <!--Repeat Button-->
+                    <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Button Name="RepeatButton" HorizontalAlignment="Right"  Width="30" IsEnabled="False" Click="DoRepeatCommand">
+                            <Image Name="RepeatButtonImage"  HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="None" Source="image/repeat_button_off.png" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </Grid>
     </Grid>
 </Window>
 
@@ -179,7 +212,8 @@
 
 
 <!--メニューボタン
-<l:DropDownMenuButton Margin="5" DropDownContextMenu="{DynamicResource PlayerContextMenu}">
+<l:DropDownMenuButton Margin="5" DropDownContextMenu="{DynamicResource Player
+    }">
     <StackPanel Orientation="Horizontal">
         <TextBlock Text="♫  ▼" />
     </StackPanel>
