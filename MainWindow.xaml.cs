@@ -32,11 +32,18 @@ namespace WpfMediaPlayer
 
     public partial class MainWindow : Window
     {
+        //フラグ
+        bool _isRepeat = false;
+        bool _isDrag = false;
+        bool _autoResize = true;
+        PlayerState CurrentState = PlayerState.isStopped;
+
         DispatcherTimer Timer;
         DispatcherTimer BufferTimer;
+        DispatcherTimer TipTextClearTimer;
+        DoubleAnimation fadeautoAnime;
         string _fileName = "";
-        double volume;
-        Properties.Settings Settings = Properties.Settings.Default;
+        double volumeTemp;
 
         double Volume
         {
@@ -44,6 +51,7 @@ namespace WpfMediaPlayer
             {
                 return MainPlayer.Volume;
             }
+
             set
             {
                 if (value >= 1)
@@ -60,14 +68,25 @@ namespace WpfMediaPlayer
                     MainPlayer.Volume = value;
                     VolumeButtonImage.Source = new BitmapImage(new Uri("image/volume_button.png", UriKind.Relative));
                 }
+
+                VolumeBar.Width = VolumeBarControl.Width * Volume;
+                TipText = String.Format("Volume:{0:00}", Volume * 100);
             }
         }
 
-        //フラグ
-        bool _isRepeat = false;
-        bool _isDrag = false;
-        bool _autoResize = true;
-        PlayerState CurrentState = PlayerState.isStopped;   
+        string TipText
+        {
+            get
+            {
+                return TipTextBlock.Text;
+            }
+            
+            set
+            {
+                TipTextBlock.Text = value;
+                ShowTip();
+            }
+        }
 
         #region Constructor
 
@@ -86,10 +105,12 @@ namespace WpfMediaPlayer
                 if (this.WindowState == WindowState.Normal)
                 {
                     this.WindowState = WindowState.Maximized;
+                    TipText = "Maximized";
                 }
                 else
                 {
                     this.WindowState = WindowState.Normal;
+                    TipText = "Normal";
                 }
             };
 
@@ -104,22 +125,21 @@ namespace WpfMediaPlayer
                 {
                     Volume -= 0.02;
                 }
-
-                SetVolumeBar(); ;
             };
 
             //マウスが画面に載ったらパネルを表示
             this.MouseEnter += (s, e) =>
             {
-                InfoTextPanel.Visibility = Visibility.Visible;
-                ControlPanel.Visibility = Visibility.Visible;
+                if (fadeautoAnime == null)
+                {
+                    GridControlPanel.Visibility = Visibility.Visible;
+                }
             };
 
             //マウスが画面から離れたらパネルを非表示
             this.MouseLeave += (s, e) =>
             {
-                InfoTextPanel.Visibility = Visibility.Collapsed;
-                ControlPanel.Visibility = Visibility.Collapsed;
+                PanelFadeout();
             };
 
             //キー操作
@@ -129,10 +149,12 @@ namespace WpfMediaPlayer
                 if (this.Topmost == false)
                 {
                     this.Topmost = true;
+                    TipText = "Topmost";
                 }
                 else
                 {
                     this.Topmost = false;
+                    TipText = "Normal";
                 }
             };
 
@@ -142,10 +164,9 @@ namespace WpfMediaPlayer
             Timer.Interval = new TimeSpan(0, 0, 1);
 
             //ボリュームをセット
-            Volume = Properties.Settings.Default.Volume;
-            SetVolumeBar();
+            MainPlayer.Volume = Properties.Settings.Default.Volume;
 
-            //autoresizeの設定
+            //autoResizeの設定
             _autoResize = Properties.Settings.Default.AutoResize;
             MenuItemAutoResize.IsChecked = _autoResize;
 
@@ -310,6 +331,8 @@ namespace WpfMediaPlayer
                 RepeatButton.IsEnabled = true;
                 SeekBarControl.IsEnabled = true;
 
+                
+
                 if (_autoResize) { Resize(); }
 
                 //再生時間を書き込む
@@ -333,10 +356,10 @@ namespace WpfMediaPlayer
         //バッファ開始時の処理
         private void MainPlayer_BufferingStarted(object sender, RoutedEventArgs e)
         {
-            InfoText.Text = "Buffring...";
+            InfoTextBlock.Text = "Buffring...";
 
             BufferTimer = new DispatcherTimer();
-            BufferTimer.Tick += (s, ev) => { InfoText.Text = String.Format("{0}%", MainPlayer.BufferingProgress * 100).ToString(); };
+            BufferTimer.Tick += (s, ev) => { TipText = String.Format("{0}%", MainPlayer.BufferingProgress * 100).ToString(); };
             BufferTimer.Interval = new TimeSpan(0, 0, 1);
 
             BufferTimer.Start();
@@ -347,7 +370,7 @@ namespace WpfMediaPlayer
         private void MainPlayer_BufferingEnded(object sender, RoutedEventArgs e)
         {
             BufferTimer.Stop();
-            InfoText.Text = "Conectiong...";
+            InfoTextBlock.Text = "Conectiong...";
         }
 
         #endregion
@@ -359,7 +382,8 @@ namespace WpfMediaPlayer
         {
             if (_fileName == "") { return; }
 
-            InfoText.Text = System.IO.Path.GetFileNameWithoutExtension(_fileName);
+            InfoTextBlock.Text = System.IO.Path.GetFileNameWithoutExtension(_fileName);
+            this.Title = System.IO.Path.GetFileNameWithoutExtension(_fileName);
 
             MainPlayer.Source = new Uri(_fileName);
             MainPlayer.Play();
@@ -381,7 +405,7 @@ namespace WpfMediaPlayer
 
             PlayButtonImage.Source = new BitmapImage(new Uri("image/play_button.png", UriKind.Relative));
 
-            if (CurrentState == PlayerState.isStream) { InfoText.Text = "Disconnected..."; }
+            if (CurrentState == PlayerState.isStream) { InfoTextBlock.Text = "Disconnected..."; }
 
             CurrentState = PlayerState.isStopped;
         }
@@ -427,12 +451,60 @@ namespace WpfMediaPlayer
             }
         }
 
+        //ウィンドウサイズを変更
         public void Resize(double rate = 1)
         {
             if (CurrentState == PlayerState.isStopped) { return; }
 
             this.Height = MainPlayer.NaturalVideoHeight * rate;
             this.Width = MainPlayer.NaturalVideoWidth * rate;
+        }
+
+        //パネルをフェードアウトさせる
+        public void PanelFadeout()
+        {
+            if (fadeautoAnime == null)
+            {
+                Dispatcher.Invoke(new Action(() =>
+                {
+
+                    fadeautoAnime = new DoubleAnimation();
+                    fadeautoAnime.From = 0.7;
+                    fadeautoAnime.To = 0;
+                    fadeautoAnime.Duration = TimeSpan.FromSeconds(0.5);
+                    fadeautoAnime.FillBehavior = FillBehavior.Stop;
+
+                    fadeautoAnime.Completed += (e, s) =>
+                    {
+                        GridControlPanel.Visibility = Visibility.Collapsed;
+                        fadeautoAnime = null;   
+                    };
+
+                    GridControlPanel.BeginAnimation(Grid.OpacityProperty, fadeautoAnime);
+                    
+                }));
+            }
+        }
+
+        //Tipを一定時間表示
+        public void ShowTip(System.Windows.HorizontalAlignment Aligment = System.Windows.HorizontalAlignment.Right)
+        {
+            if (TipTextClearTimer == null)
+            {
+                TipPanel.Visibility = Visibility.Visible;
+                TipPanel.Margin = new Thickness(1, InfoTextGridPanel.ActualHeight, 1, 0);
+                TipPanel.HorizontalAlignment = Aligment;
+
+                TipTextClearTimer = new DispatcherTimer();
+                TipTextClearTimer.Tick += (e, s) =>
+                {
+                    TipPanel.Visibility = Visibility.Collapsed;
+                    TipTextClearTimer.Stop();
+                    TipTextClearTimer = null;
+                };
+                TipTextClearTimer.Interval = TimeSpan.FromSeconds(5);
+                TipTextClearTimer.Start();
+            }
         }
 
         #endregion
@@ -537,15 +609,13 @@ namespace WpfMediaPlayer
         {
             if (Volume == 0)
             {
-                Volume = volume;
+                Volume = volumeTemp;
             }
             else
             {
-                volume = Volume;
+                volumeTemp = Volume;
                 Volume = 0;
             }
-            
-            SetVolumeBar();
         }
 
         private void VolumeButton_MouseEnter(object sender, MouseEventArgs e)
@@ -592,7 +662,7 @@ namespace WpfMediaPlayer
             Point ClickPoint = e.GetPosition(this.VolumeBarPanel);
 
             Volume = 1 * (ClickPoint.X / VolumeBarControl.Width);
-            SetVolumeBar();
+            
 
             _isDrag = false;
         }
@@ -604,7 +674,7 @@ namespace WpfMediaPlayer
                 Point ClickPoint = e.GetPosition(this.VolumeBarPanel);
 
                 Volume = 1 * (ClickPoint.X / VolumeBarControl.Width);
-                SetVolumeBar();
+                
             }
         }
 
@@ -615,16 +685,10 @@ namespace WpfMediaPlayer
                 Point ClickPoint = e.GetPosition(this.VolumeBarPanel);
 
                 Volume = 1 * (ClickPoint.X / VolumeBarControl.Width);
-                SetVolumeBar();
+                
 
                 _isDrag = false;
             }
-        }
-
-        private void SetVolumeBar()
-        {
-            VolumeBar.Width = VolumeBarControl.Width * Volume;
-            InfoTextRight.Text = String.Format("Volume:{0:00}", Volume * 100);
         }
 
         #endregion
