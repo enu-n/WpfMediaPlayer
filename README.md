@@ -1,4 +1,5 @@
 ###MediaPlayer using MediaElement...
+![Alt Text](https://dl.dropboxusercontent.com/u/37896431/GitHub/WpfMediaPlayer/wpfmediaplayer.png)
 * .NET 3.5以上で動く…はず  
 * WMPで再生できるものなら再生できます
 * どっかで見覚えあっても気のせいです
