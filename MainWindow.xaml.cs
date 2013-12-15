@@ -331,9 +331,7 @@ namespace WpfMediaPlayer
                 RepeatButton.IsEnabled = true;
                 SeekBarControl.IsEnabled = true;
 
-                
-
-                if (_autoResize) { Resize(); }
+                if (_autoResize && !_isRepeat) { Resize(); }
 
                 //再生時間を書き込む
                 NaturalDurationText.Text = String.Format("{0:00}:{1:00}:{2:00}", MainPlayer.NaturalDuration.TimeSpan.Hours,

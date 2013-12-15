@@ -12,7 +12,7 @@
         <!--コンテキストメニュー-->
 
         <!--ボタンのコントロールテンプレートとスタイル-->
-        <ControlTemplate x:Key="GlassButton" TargetType="{x:Type Button}">
+        <ControlTemplate x:Key="GrowButton" TargetType="{x:Type Button}">
             <!--glowのStoryboard-->
             <ControlTemplate.Resources>
                 <Storyboard x:Key="Timeline1">
@@ -68,7 +68,7 @@
 
         <!--Button Style-->
         <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Template" Value="{StaticResource GlassButton}"/>
+            <Setter Property="Template" Value="{StaticResource GrowButton}"/>
             <Setter Property="Width" Value="100"/>
             <Setter Property="Height" Value="20"/>
             <Setter Property="Margin" Value="5"/>
